@@ -9,7 +9,7 @@ lib:
 	@cd build; $(MAKE)
 
 format:
-	python3 -m black .
+	# python3 -m black .
 	clang-format -i src/*.cc src/*.cu
 
 clean:

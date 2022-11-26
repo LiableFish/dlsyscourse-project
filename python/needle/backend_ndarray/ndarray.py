@@ -245,9 +245,19 @@ class NDArray:
             NDArray : reshaped array; this will point to thep
         """
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        if self.size != prod(new_shape):
+            raise ValueError(f"Can not reshape from shape {self._shape} to shape {new_shape}")
+        
+        if not self.is_compact():
+            raise ValueError("Matrix is not compact")
+
+        return self.make(
+            shape=new_shape, 
+            strides=self.compact_strides(new_shape), 
+            device=self._device, 
+            handle=self._handle,
+            offset=self._offset,
+        )
 
     def permute(self, new_axes):
         """
@@ -270,9 +280,13 @@ class NDArray:
             strides changed).
         """
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        return self.make(
+            shape=tuple(self._shape[i] for i in new_axes),
+            strides=tuple(self._strides[i] for i in new_axes),
+            device=self._device,
+            handle=self._handle,
+            offset=0,
+        )
 
     def broadcast_to(self, new_shape):
         """
@@ -293,9 +307,18 @@ class NDArray:
             NDArray: the new NDArray object with the new broadcast shape; should
             point to the same memory as the original array.
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+
+        assert all(
+            new_shape[i] == self._shape[i] for i in range(len(self._shape)) if self._shape[i] != 1
+        )
+
+        return self.make(
+            shape=new_shape,
+            strides=tuple(self._strides[i] if self._shape[i] != 1 else 0 for i in range(len(self._shape))),
+            device=self._device,
+            handle=self._handle,
+            offset=self._offset,
+        )
 
     ### Get and set elements
 
@@ -305,7 +328,7 @@ class NDArray:
         if start == None:
             start = 0
         if start < 0:
-            start = self.shape[dim]
+            start = self.shape[dim] + start
         if stop == None:
             stop = self.shape[dim]
         if stop < 0:
@@ -360,9 +383,17 @@ class NDArray:
         )
         assert len(idxs) == self.ndim, "Need indexes equal to number of dimensions"
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        def _get_dim_after_slice(sl: slice):
+            dif = sl.stop - sl.start
+            return dif // sl.step + dif % sl.step
+
+        return self.make(
+            shape=tuple(_get_dim_after_slice(sl) for sl in idxs),
+            strides=tuple(stride * sl.step for sl, stride in zip(idxs, self._strides)),
+            device=self._device,
+            handle=self._handle,
+            offset=sum(sl.start * stride for sl, stride in zip(idxs, self._strides)),
+        )
 
     def __setitem__(self, idxs, other):
         """Set the values of a view into an array, using the same semantics
