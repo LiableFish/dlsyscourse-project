@@ -169,6 +169,45 @@ def test_stack_backward(shape, axis, l, device):
     for i in range(l):
         np.testing.assert_allclose(A_t[i].grad.numpy(), A[i].grad.numpy(), atol=1e-5, rtol=1e-5)
 
+@pytest.mark.parametrize("shape, axis, l", STACK_PARAMETERS)
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+def test_split(shape, axis, l, device):
+    _A = [np.random.randn(*shape).astype(np.float32) for i in range(l)]
+    A = [ndl.Tensor(nd.array(_A[i]), device=device) for i in range(l)]
+    A_t = [torch.Tensor(_A[i]) for i in range(l)]
+    out = ndl.stack(A, axis=axis)
+    out_t = torch.stack(A_t, dim=axis)
+
+    out_split = ndl.split(out, axis)
+    out_t_split = torch.unbind(out_t, axis)
+    assert len(out_split) == len(out_t_split)
+
+    for split, split_t in zip(out_split, out_t_split):
+        np.testing.assert_allclose(split_t.numpy(), split.numpy(), atol=1e-5, rtol=1e-5)
+
+
+@pytest.mark.parametrize("shape, axis, l", STACK_PARAMETERS)
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+def test_split_backward(shape, axis, l, device):
+    _A = [np.random.randn(*shape).astype(np.float32) for i in range(l)]
+    A = [ndl.Tensor(nd.array(_A[i]), device=device) for i in range(l)]
+    A_t = [torch.Tensor(_A[i]) for i in range(l)]
+    for i in range(l):
+        A_t[i].requires_grad = True
+    
+    out = ndl.stack(A, axis=axis)
+    out_t = torch.stack(A_t, dim=axis)
+
+    out_split = ndl.split(out, axis)
+    out_t_split = torch.unbind(out_t, axis)
+    assert len(out_split) == len(out_t_split)
+
+    for i in range(l):
+        out_split[i].sum().backward()
+        out_t_split[i].sum().backward()
+        np.testing.assert_allclose(A_t[i].grad.numpy(), A[i].grad.numpy(), atol=1e-5, rtol=1e-5)
+
+
 
 SUMMATION_PARAMETERS = [((1, 1, 1), None),
     ((5, 3), 0),

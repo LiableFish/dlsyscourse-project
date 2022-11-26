@@ -644,6 +644,10 @@ def reshape(array, new_shape):
     return array.reshape(new_shape)
 
 
+def permute(array, new_axes):
+    return array.permute(new_axes)
+
+
 def maximum(a, b):
     return a.maximum(b)
 
@@ -659,9 +663,14 @@ def exp(a):
 def tanh(a):
     return a.tanh()
 
+
 def flip(a, axes):
     return a.flip(axes)
 
 
 def summation(a, axis=None, keepdims=False):
     return a.sum(axis=axis, keepdims=keepdims)
+
+
+def reduce_max(a, axis=None, keepdims=False):
+    return a.max(axis=axis, keepdims=keepdims)
