@@ -1,4 +1,5 @@
 import gzip
+from pathlib import Path
 import struct
 import numpy as np
 from .autograd import Tensor
@@ -196,7 +197,10 @@ class DataLoader:
         # batch_labels = Tensor.make_const(np.stack(batch_labels))
 
         self.current_order += 1
-        return tuple(Tensor.make_const(np.stack(batch_type)) for batch_type in zip(*batch)) 
+        return tuple(
+            Tensor.make_const(nd.array(np.stack(batch_type))) 
+            for batch_type in zip(*batch)
+        ) 
 
 
 
@@ -251,26 +255,40 @@ class CIFAR10Dataset(Dataset):
         X - numpy array of images
         y - numpy array of labels
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        
+        self.transforms = transforms
+
+        if train:
+            paths = Path(base_folder).glob("data_batch_*")
+        else:
+            paths = Path(base_folder).glob("test_batch")
+
+        X_batches = []
+        y_batches = []
+
+        for path in sorted(paths):
+            with path.open("rb") as batch_file:
+                batch = pickle.load(batch_file, encoding="bytes")
+            X_batches.append(batch[b'data'])
+            y_batches.append(batch[b'labels'])
+
+        self.X = np.concatenate(X_batches, dtype=np.float32).reshape(-1, 3, 32, 32) / 255
+        self.y = np.concatenate(y_batches, dtype=np.int8)
+
 
     def __getitem__(self, index) -> object:
         """
         Returns the image, label at given index
         Image should be of shape (3, 32, 32)
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        return self.apply_transforms(self.X[index]), self.y[index]
+        
 
     def __len__(self) -> int:
         """
         Returns the total number of examples in the dataset
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        return len(self.X)
 
 
 class NDArrayDataset(Dataset):

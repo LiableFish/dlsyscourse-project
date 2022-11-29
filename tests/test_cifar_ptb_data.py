@@ -31,7 +31,7 @@ def test_cifar10_dataset(train):
     assert X.shape == (3, 32, 32)
 
 
-BATCH_SIZES = [1, 15]
+BATCH_SIZES = [1, 3, 5, 15]
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
 @pytest.mark.parametrize("train", TRAIN)
 @pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
@@ -40,9 +40,10 @@ def test_cifar10_loader(batch_size, train, device):
     train_loader = ndl.data.DataLoader(cifar10_train_dataset, batch_size)
     for (X, y) in train_loader:
         break
-    assert isinstance(X.cached_data, nd.NDArray)
+    assert isinstance(X.cached_data, nd.NDArray), type(X.cached_data)
     assert isinstance(X, ndl.Tensor)
     assert isinstance(y, ndl.Tensor)
+    assert X.shape[0] == y.shape[0] == batch_size
     assert X.dtype == 'float32'
 
 
