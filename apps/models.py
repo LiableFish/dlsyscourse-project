@@ -7,17 +7,76 @@ import numpy as np
 np.random.seed(0)
 
 
-class ResNet9(ndl.nn.Module):
+class ConvBN(nn.Module):
+    def __init__(
+        self, 
+        in_channels, 
+        out_channels,
+        kernel_size, 
+        stride=1,
+        bias=True, 
+        device=None,
+        dtype="float32",
+    ) -> None:
+        super().__init__()
+        self.conv = nn.Conv(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            bias=bias,
+            device=device,
+            dtype=dtype,
+        )
+
+        self.batch_norm = nn.BatchNorm2d(
+            out_channels,
+            device=device,
+            dtype=dtype,
+        )
+
+        self.relu = nn.ReLU()
+
+    def forward(self, X: ndl.Tensor) -> ndl.Tensor:
+        res = self.conv(X)
+        res = self.batch_norm(res)
+        return self.relu(res)
+
+
+class ResNet9(nn.Module):
     def __init__(self, device=None, dtype="float32"):
         super().__init__()
-        ### BEGIN YOUR SOLUTION ###
-        raise NotImplementedError() ###
-        ### END YOUR SOLUTION
+        self.convs = nn.Sequential(
+            ConvBN(3, 16, 7, 4, device=device, dtype=dtype),
+            ConvBN(16, 32, 3, 2, device=device, dtype=dtype),
+            nn.Residual(
+                nn.Sequential(
+                    ConvBN(32, 32, 3, 1, device=device, dtype=dtype), 
+                    ConvBN(32, 32, 3, 1, device=device, dtype=dtype), 
+                ),
+            ),
+            ConvBN(32, 64, 3, 2, device=device, dtype=dtype), 
+            ConvBN(64, 128, 3, 2, device=device, dtype=dtype),
+            nn.Residual(
+                nn.Sequential(
+                    ConvBN(128, 128, 3, 1, device=device, dtype=dtype), 
+                    ConvBN(128, 128, 3, 1, device=device, dtype=dtype),
+                ),
+            ),
+        )
 
-    def forward(self, x):
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        self.flatten = nn.Flatten()
+
+        self.classification_layer = nn.Sequential(
+            nn.Linear(128, 128, device=device, dtype=dtype),
+            nn.ReLU(),
+            nn.Linear(128, 10, device=device, dtype=dtype),
+        )
+
+    def forward(self, X: ndl.Tensor) -> ndl.Tensor:
+        res = self.convs(X)
+        res = self.flatten(res)
+        return self.classification_layer(res)
 
 
 class LanguageModel(nn.Module):

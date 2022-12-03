@@ -28,9 +28,31 @@ def epoch_general_cifar10(dataloader, model, loss_fn=nn.SoftmaxLoss(), opt=None)
         avg_loss: average loss over dataset
     """
     np.random.seed(4)
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    
+    model.train()
+    if opt is None:
+        model.eval()
+
+    count = loss_sum = accuracy = 0
+    for batch in dataloader:
+        images, labels = batch
+        images, labels = ndl.Tensor(images, device=device), ndl.Tensor(labels, device=device)
+
+        logits = model(images)
+        loss = loss_fn(logits, labels)
+
+        if opt is not None:
+            loss.backward()
+            opt.step()
+
+        count += images.shape[0]
+        loss_sum += loss.detach().numpy() * images.shape[0]
+        accuracy += (logits.detach().numpy().argmax(-1) == labels.detach().numpy()).sum()
+        
+    avg_loss = loss_sum / count
+    avg_accuracy = accuracy / count
+
+    return avg_accuracy, avg_loss    
 
 
 def train_cifar10(model, dataloader, n_epochs=1, optimizer=ndl.optim.Adam,
@@ -52,9 +74,14 @@ def train_cifar10(model, dataloader, n_epochs=1, optimizer=ndl.optim.Adam,
         avg_loss: average loss over dataset from last epoch of training
     """
     np.random.seed(4)
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    
+    optim = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    for i in range(n_epochs):
+        train_acc, train_loss = epoch_general_cifar10(dataloader, model, loss_fn(), optim)
+        print(f"Epoch {i}/{n_epochs - 1}", f"accuracy: {train_acc}", f"loss: {train_loss}")
+    
+    return train_acc, train_loss
 
 
 def evaluate_cifar10(model, dataloader, loss_fn=nn.SoftmaxLoss):
@@ -71,9 +98,8 @@ def evaluate_cifar10(model, dataloader, loss_fn=nn.SoftmaxLoss):
         avg_loss: average loss over dataset
     """
     np.random.seed(4)
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    test_acc, test_loss = epoch_general_cifar10(dataloader, model, loss_fn(), opt=None)
+    print(f"accuracy: {test_acc}", f"loss: {test_loss}")
 
 
 

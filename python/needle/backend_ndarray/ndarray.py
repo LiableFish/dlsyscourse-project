@@ -142,7 +142,7 @@ class NDArray:
         array._offset = offset
         array._device = device if device is not None else default_device()
         if handle is None:
-            array._handle = array.device.Array(prod(shape))
+            array._handle = array.device.Array(int(prod(shape)))
         else:
             array._handle = handle
         return array
@@ -602,9 +602,13 @@ class NDArray:
         Flip this ndarray along the specified axes.
         Note: compact() before returning.
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        return NDArray.make(
+            shape=self.shape,
+            strides=tuple(-stride if i in axes else stride for i, stride in enumerate(self.strides)),
+            device=self.device,
+            handle=self._handle,
+            offset=sum(self.strides[ax] * (self.shape[ax] - 1) for ax in axes)
+        ).compact()
 
 
     def pad(self, axes):
@@ -613,9 +617,16 @@ class NDArray:
         which lists for _all_ axes the left and right padding amount, e.g.,
         axes = ( (0, 0), (1, 1), (0, 0)) pads the middle axis with a 0 on the left and right side.
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+
+        new_shape = []
+        slices = []
+        for i, (left_pad, right_pad) in enumerate(axes):
+            new_shape.append((self.shape[i] + left_pad + right_pad))
+            slices.append(slice(left_pad, left_pad + self.shape[i]))
+
+        out = full(new_shape, fill_value=0, dtype=self.dtype, device=self.device)
+        out[tuple(slices)] = self
+        return out
 
 
 

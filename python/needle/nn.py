@@ -321,14 +321,49 @@ class Conv(Module):
         self.kernel_size = kernel_size
         self.stride = stride
 
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        self.weight = Parameter(
+            init.kaiming_uniform(
+                fan_in=self.in_channels * self.kernel_size ** 2,
+                fan_out=self.out_channels * self.kernel_size ** 2,
+                shape=(self.kernel_size, self.kernel_size, self.in_channels, self.out_channels),
+            ),
+            device=device,
+            dtype=dtype,
+            requires_grad=True,
+        )
 
-    def forward(self, x: Tensor) -> Tensor:
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+
+        self.bias = None
+        if bias:
+            factor = 1 / (self.in_channels * self.kernel_size ** 2) ** 0.5
+            self.bias = Parameter(
+                init.rand(
+                    self.out_channels,
+                    low=-factor,
+                    high=factor,
+                ),
+                device=device,
+                dtype=dtype,
+                requires_grad=True,
+            )
+        
+
+    def forward(self, X: Tensor) -> Tensor:
+        # truly works only with H == W 
+        assert X.shape[-2] == X.shape[-1]
+
+        padding = self.kernel_size  // 2
+
+        conv = ops.conv(
+            X.transpose((1, 2)).transpose((2, 3)),
+            self.weight, 
+            stride=self.stride, 
+            padding=padding,
+        )
+        if self.bias is not None:
+            conv += self.bias.reshape((1, 1, 1, self.out_channels)).broadcast_to(conv.shape)
+
+        return conv.transpose((2, 3)).transpose((1, 2))
 
 
 class RNNCell(Module):

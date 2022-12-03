@@ -64,7 +64,7 @@ void IncrementIndices(std::vector<T>* indices, const std::vector<T>& shape) {
 }
 
 void Compact(const AlignedArray& a, AlignedArray* out,
-             std::vector<uint32_t> shape, std::vector<uint32_t> strides,
+             std::vector<int32_t> shape, std::vector<int32_t> strides,
              size_t offset) {
   /**
    * Compact an array in memory
@@ -80,18 +80,18 @@ void Compact(const AlignedArray& a, AlignedArray* out,
    *  void (you need to modify out directly, rather than returning anything;
    *  this is true for all the function will implement here, so we won't repeat this note.)
    */
-  std::vector<uint32_t> indices(shape.size(), 0);
+  std::vector<int32_t> indices(shape.size(), 0);
 
   for (size_t i = 0; i < out->size; ++i) {
-    auto idx = GetOffset<uint32_t>(indices, strides, offset);
-    IncrementIndices<uint32_t>(&indices, shape);
+    auto idx = GetOffset<int32_t>(indices, strides, offset);
+    IncrementIndices<int32_t>(&indices, shape);
 
     out->ptr[i] = a.ptr[idx];
   }
 }
 
 void EwiseSetitem(const AlignedArray& a, AlignedArray* out,
-                  std::vector<uint32_t> shape, std::vector<uint32_t> strides,
+                  std::vector<int32_t> shape, std::vector<int32_t> strides,
                   size_t offset) {
   /**
    * Set items in a (non-compact) array
@@ -103,18 +103,18 @@ void EwiseSetitem(const AlignedArray& a, AlignedArray* out,
    *   strides: strides of the *out* array (not a, which has compact strides)
    *   offset: offset of the *out* array (not a, which has zero offset, being compact)
    */
-  std::vector<uint32_t> indices(shape.size(), 0);
+  std::vector<int32_t> indices(shape.size(), 0);
 
   for (size_t i = 0; i < a.size; ++i) {
-    auto idx = GetOffset<uint32_t>(indices, strides, offset);
-    IncrementIndices<uint32_t>(&indices, shape);
+    auto idx = GetOffset<int32_t>(indices, strides, offset);
+    IncrementIndices<int32_t>(&indices, shape);
 
     out->ptr[idx] = a.ptr[i];
   }
 }
 
 void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out,
-                   std::vector<uint32_t> shape, std::vector<uint32_t> strides,
+                   std::vector<int32_t> shape, std::vector<int32_t> strides,
                    size_t offset) {
   /**
    * Set items is a (non-compact) array
@@ -130,11 +130,11 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out,
    *   offset: offset of the out array
    */
 
-  std::vector<uint32_t> indices(shape.size(), 0);
+  std::vector<int32_t> indices(shape.size(), 0);
 
   for (size_t i = 0; i < size; ++i) {
-    auto idx = GetOffset<uint32_t>(indices, strides, offset);
-    IncrementIndices<uint32_t>(&indices, shape);
+    auto idx = GetOffset<int32_t>(indices, strides, offset);
+    IncrementIndices<int32_t>(&indices, shape);
 
     out->ptr[idx] = val;
   }
