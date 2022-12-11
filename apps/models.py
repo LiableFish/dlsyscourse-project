@@ -1,4 +1,5 @@
 import sys
+from typing import Optional
 sys.path.append('./python')
 import needle as ndl
 import needle.nn as nn
@@ -93,11 +94,38 @@ class LanguageModel(nn.Module):
         num_layers: Number of layers in RNN or LSTM
         """
         super(LanguageModel, self).__init__()
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
 
-    def forward(self, x, h=None):
+        self.embedding_layer = nn.Embedding(
+            output_size,
+            embedding_size,
+            device=device,
+            dtype=dtype,
+        )
+        
+        if seq_model == 'rnn':
+            seq2seq_cls = nn.RNN
+        elif seq_model == 'lstm':
+            seq2seq_cls = nn.LSTM
+        else:
+            raise NotImplementedError()
+
+        self.seq2seq = seq2seq_cls(
+            embedding_size,
+            hidden_size,
+            num_layers=num_layers,
+            device=device,
+            dtype=dtype,
+        )
+
+        self.linear_layer = nn.Linear(
+            hidden_size,
+            output_size,
+            device=device,
+            dtype=dtype,
+        )
+
+
+    def forward(self, X: ndl.Tensor, h: Optional[ndl.Tensor] = None):
         """
         Given sequence (and the previous hidden state if given), returns probabilities of next word
         (along with the last hidden state from the sequence model).
@@ -110,9 +138,10 @@ class LanguageModel(nn.Module):
         h of shape (num_layers, bs, hidden_size) if using RNN,
             else h is tuple of (h0, c0), each of shape (num_layers, bs, hidden_size)
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        embeddings = self.embedding_layer(X)
+        hidden, last = self.seq2seq(embeddings, h)
+        seq_len, bs, hidden_size = hidden.shape
+        return self.linear_layer(hidden.reshape((seq_len * bs, hidden_size))), last
 
 
 if __name__ == "__main__":

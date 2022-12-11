@@ -5,7 +5,7 @@ import numpy as np
 from .autograd import Tensor
 import os
 import pickle
-from typing import Iterator, Optional, List, Sized, Tuple, Union, Iterable, Any
+from typing import Dict, Iterator, Optional, List, Sized, Tuple, Union, Iterable, Any
 from needle import backend_ndarray as nd
 
 
@@ -316,27 +316,29 @@ class Dictionary(object):
         to the dictionary (i.e. each word only appears once in this list)
     """
     def __init__(self):
-        self.word2idx = {}
-        self.idx2word = []
+        self.word2idx: Dict[str, int] = {}
+        self.idx2word: List[str] = []
 
-    def add_word(self, word):
+    def add_word(self, word: str) -> int:
         """
         Input: word of type str
         If the word is not in the dictionary, adds the word to the dictionary
         and appends to the list of words.
         Returns the word's unique ID.
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        word_id = self.word2idx.get(word)
+        if not word_id:
+            self.idx2word.append(word)
+            word_id = len(self.idx2word) - 1
+            self.word2idx[word] = word_id
+        
+        return word_id
 
     def __len__(self):
         """
         Returns the number of unique words in the dictionary.
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        return len(self.word2idx)
 
 
 
@@ -344,12 +346,12 @@ class Corpus(object):
     """
     Creates corpus from train, and test txt files.
     """
-    def __init__(self, base_dir, max_lines=None):
+    def __init__(self, base_dir: str, max_lines: Optional[int] = None):
         self.dictionary = Dictionary()
         self.train = self.tokenize(os.path.join(base_dir, 'train.txt'), max_lines)
         self.test = self.tokenize(os.path.join(base_dir, 'test.txt'), max_lines)
 
-    def tokenize(self, path, max_lines=None):
+    def tokenize(self, path: str, max_lines: Optional[int] = None) -> List[int]:
         """
         Input:
         path - path to text file
@@ -361,9 +363,19 @@ class Corpus(object):
         Output:
         ids: List of ids
         """
-        ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        count = 0
+        ids = []
+        with open(path) as input_file:
+            for line in input_file:
+                for word in line.strip().split():
+                    ids.append(self.dictionary.add_word(word))
+
+                ids.append(self.dictionary.add_word('<eos>'))
+                count += 1
+                if max_lines and count >= max_lines:
+                    break
+        
+        return ids
 
 
 def batchify(data, batch_size, device, dtype):
@@ -382,10 +394,10 @@ def batchify(data, batch_size, device, dtype):
     If the data cannot be evenly divided by the batch size, trim off the remainder.
     Returns the data as a numpy array of shape (nbatch, batch_size).
     """
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
-
+    batches = np.array(data, dtype=dtype)
+    nbatch = len(data) // batch_size
+    return batches[:nbatch * batch_size].reshape((batch_size, nbatch)).T
+    
 
 def get_batch(batches, i, bptt, device=None, dtype=None):
     """
@@ -406,6 +418,16 @@ def get_batch(batches, i, bptt, device=None, dtype=None):
     data - Tensor of shape (bptt, bs) with cached data as NDArray
     target - Tensor of shape (bptt*bs,) with cached data as NDArray
     """
-    ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
-    ### END YOUR SOLUTION
+    nbatch, _ = batches.shape
+    seq_len = min(bptt, nbatch - i - 1)
+    data = Tensor(
+        batches[i:i+seq_len], 
+        device=device,
+        dtype=dtype,
+    )
+    target = Tensor(
+        batches[i + 1:i + 1 + seq_len].flatten(), 
+        device=device, 
+        dtype=dtype,
+    )
+    return data, target

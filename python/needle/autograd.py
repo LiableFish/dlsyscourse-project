@@ -364,9 +364,6 @@ class Tensor(Value):
     __rmatmul__ = __matmul__
 
 
-def _is_const_node(node: Value):
-    return not node.inputs and not node.op
-
 
 def compute_gradient_of_variables(output_tensor: Tensor, out_grad: Tensor):
     """Take gradient of output node with respect to each node in node_list.
@@ -389,7 +386,7 @@ def compute_gradient_of_variables(output_tensor: Tensor, out_grad: Tensor):
         grad = sum_node_list(node_to_output_grads_list[node])
         node.grad = grad
 
-        if _is_const_node(node):
+        if  node.is_leaf():
             continue
 
         # partial_adjoint := adjoint * d node / d input
