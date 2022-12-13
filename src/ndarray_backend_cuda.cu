@@ -435,10 +435,10 @@ __global__ void MatmulKernel(const float* a, const float* b, float* out,
   size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
   if (gid < M * P) {
     size_t i = gid / P;
-    size_t j = gid % P;
+    size_t j = gid % P; 
     out[gid] = 0;
     for (size_t k = 0; k < N; ++k) {
-      out[gid] += static_cast<double>(a[i * N + k]) * b[k * P + j];
+      out[gid] += a[i * N + k] * b[k * P + j];
     }
   }
 }

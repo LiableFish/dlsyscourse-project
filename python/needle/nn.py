@@ -831,7 +831,6 @@ class Embedding(Module):
             i=X.reshape((seq_len * bs,)),
             device=X.device,
             dtype=X.dtype,
-            requires_grad=True,
         )
 
         res = one_hot @ self.weight

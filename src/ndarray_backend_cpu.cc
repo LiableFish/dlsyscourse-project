@@ -280,13 +280,12 @@ void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out,
    *   n: columns of a / rows of b
    *   p: columns of b / out
    */
-
+  Fill(out, 0);
   for (size_t i = 0; i < m; ++i) {
-    for (size_t j = 0; j < p; ++j) {
-      out->ptr[i * p + j] = 0;
-      for (size_t k = 0; k < n; ++k) {
+    for (size_t k = 0; k < n; ++k) {
+      for (size_t j = 0; j < p; ++j) {
         out->ptr[i * p + j] +=
-            static_cast<double>(a.ptr[i * n + k]) * b.ptr[k * p + j];
+            a.ptr[i * n + k] * b.ptr[k * p + j];
       }
     }
   }
@@ -322,7 +321,7 @@ inline void AlignedDot(const float* __restrict__ a, const float* __restrict__ b,
     for (size_t j = 0; j < TILE; ++j) {
       for (size_t k = 0; k < TILE; ++k) {
         out[i * TILE + j] +=
-            static_cast<double>(a[i * TILE + k]) * b[k * TILE + j];
+            a[i * TILE + k] * b[k * TILE + j];
       }
     }
   }

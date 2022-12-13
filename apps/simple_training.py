@@ -144,7 +144,7 @@ def epoch_general_ptb(data, model, seq_len=40, loss_fn=nn.SoftmaxLoss(), opt=Non
 
     count = loss_sum = accuracy = 0
     last = None
-    for i in trange(0, data.shape[0] - seq_len, seq_len):
+    for i in trange(0, data.shape[0] - 1, seq_len):
         texts, labels = ndl.data.get_batch(data, i, seq_len, device=device, dtype=dtype)
 
         logits, last = model(texts, last)
@@ -278,4 +278,4 @@ if __name__ == "__main__":
     hidden_size = 100
     train_data = ndl.data.batchify(corpus.train, batch_size, device=device, dtype="float32")
     model = LanguageModel(1, len(corpus.dictionary), hidden_size, num_layers=2, device=device)
-    train_ptb(model, train_data, seq_len, n_epochs=10, device=device)
+    train_ptb(model, train_data, seq_len, n_epochs=1, device=device)
