@@ -39,7 +39,7 @@ def epoch_general_cifar10(dataloader, model, loss_fn=nn.SoftmaxLoss(), opt=None)
     count = loss_sum = accuracy = 0
     for batch in tqdm(dataloader, total=len(dataloader.dataset) // dataloader.batch_size):
         images, labels = batch
-        images, labels = ndl.Tensor(images, device=device), ndl.Tensor(labels, device=device)
+        images, labels = ndl.Tensor(images, device=model.device), ndl.Tensor(labels, device=model.device)
 
         logits = model(images)
         loss = loss_fn(logits, labels)
