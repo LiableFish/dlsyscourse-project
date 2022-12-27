@@ -20,6 +20,8 @@ class ConvBN(nn.Module):
         dtype="float32",
     ) -> None:
         super().__init__()
+        self.device = device
+
         self.conv = nn.Conv(
             in_channels,
             out_channels,
@@ -47,6 +49,7 @@ class ConvBN(nn.Module):
 class ResNet9(nn.Module):
     def __init__(self, device=None, dtype="float32"):
         super().__init__()
+        self.device = device
         self.convs = nn.Sequential(
             ConvBN(3, 16, 7, 4, device=device, dtype=dtype),
             ConvBN(16, 32, 3, 2, device=device, dtype=dtype),
@@ -94,6 +97,7 @@ class LanguageModel(nn.Module):
         num_layers: Number of layers in RNN or LSTM
         """
         super(LanguageModel, self).__init__()
+        self.device = device
 
         self.embedding_layer = nn.Embedding(
             output_size,
