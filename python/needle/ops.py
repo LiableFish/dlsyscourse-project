@@ -1,8 +1,11 @@
 """Operatpr table."""
 # Global operator table.
+from functools import lru_cache
 from itertools import zip_longest
 from numbers import Number
 from typing import Iterable, Optional, List, Tuple, Union
+
+from .solver import BaseSolver
 from .autograd import NDArray
 from .autograd import Op, Tensor, Value, TensorOp
 from .autograd import TensorTuple, TensorTupleOp
@@ -71,7 +74,7 @@ def fused_add_scalars(x, c0, c1):
 
 
 class EWiseAdd(TensorOp):
-    def compute(self, a: NDArray, b: NDArray):
+    def compute(self, a: NDArray, b: NDArray, *_):
         return a + b
 
     def gradient(self, out_grad: Tensor, node: Tensor):
@@ -278,7 +281,7 @@ def summation(a, axes=None):
 
 
 class MatMul(TensorOp):
-    def compute(self, a: NDArray, b: NDArray):
+    def compute(self, a: NDArray, b: NDArray, *_):
         return a @ b
 
     def gradient(self, out_grad: Tensor, node: Tensor):
@@ -438,7 +441,7 @@ class Stack(TensorOp):
 
         return stacked_array.reshape((len(args), *shape)).permute(new_axes).compact()
 
-    def gradient(self, out_grad: TensorTuple, node: Tensor):
+    def gradient(self, out_grad: Tensor, node: Tensor):
         return split(out_grad, axis=self.axis)
 
 
@@ -613,3 +616,102 @@ class Conv(TensorOp):
 
 def conv(a, b, stride=1, padding=0):
     return Conv(stride, padding)(a, b)
+
+
+##### fixed point #####
+
+from .nn import Module
+
+
+class FixedPoint(TensorOp):
+    def __init__(self, op: Union[TensorOp, Module], solver: BaseSolver): 
+        self.op = self._init_op(op)
+        self.solver = solver
+        self.history = []
+    
+    @staticmethod
+    def _init_op(op: Union[TensorOp, Module]) -> TensorOp:
+        if isinstance(op, TensorOp):
+            return op
+        elif isinstance(op, Module):
+            return ModuleOp(op)
+        else:
+            raise NotImplementedError()
+
+    def compute(self, *args: Tuple[NDArray]):
+        inp, *params = args
+        init_value = array_api.full(
+            inp.shape,
+            fill_value=0,
+            device=inp.device,
+            dtype=inp.dtype,
+        )
+        res = self.solver.solve(lambda z: self.op.compute(z, inp, *params), init_value)
+        self.history.append(self.solver.meta)
+        return res
+
+    def gradient(self, out_grad: Tensor, node: Tensor):
+        inp, *params = node.inputs
+        device = node.device
+        dtype = node.dtype
+
+        node = self.op(node, inp, *params)
+        
+        def _implicit_adjoint_op(v_array: NDArray) -> NDArray:
+            v = Tensor.make_const(v_array)
+            output_grad = self.op.gradient_as_tuple(out_grad=v, node=node)[0]
+            return (out_grad + output_grad).realize_cached_data()
+
+        implicit_output_grad_array = self.solver.solve(
+            _implicit_adjoint_op,
+            array_api.full(out_grad.shape, fill_value=0, device=device, dtype=dtype),
+        )
+
+        implicit_output_grad = Tensor(implicit_output_grad_array, device=device, dtype=dtype)
+
+        return self.op.gradient_as_tuple(out_grad=implicit_output_grad, node=node)[1:]
+
+
+def fixed_point(*args, op, solver):
+    return FixedPoint(op, solver)(*args)
+
+
+class ModuleOp(TensorOp):
+    def __init__(self, module: Module):
+        self.module = module
+
+    def compute(self, *args: Tuple[NDArray]):
+        z, x, *_ = args
+        return self.module(Tensor.make_const(z), Tensor.make_const(x)).realize_cached_data()
+
+    def _compute_gradient(self, out_grad: Tensor, node: Tensor, inputs: List[Tensor]):
+        tmp = {node: out_grad}
+        res = {}
+
+        while tmp:
+            out = next(iter(tmp))
+            grad = tmp.pop(out)
+
+            if out in inputs:
+                continue
+
+            inp_grads = out.op.gradient_as_tuple(grad, out)
+            for inp, inp_grad in zip(out.inputs, inp_grads):
+                tmp[inp] = inp_grad
+                if inp in inputs:
+                    res[inp] = inp_grad
+                    
+        return tuple(res[inp] for inp in inputs)
+
+    @lru_cache(1)
+    def _compute_module(self, *args: Tuple[Tensor]):
+        return self.module(*args)
+
+    def gradient(self, out_grad: "Value", node: "Value") -> Union["Value", Tuple["Value"]]:
+        z, x, *parameters = node.inputs  # self.module.parameters
+        res = self._compute_module(z, x)
+        return self._compute_gradient(out_grad, res, [z, x, *parameters])
+
+
+def module_op(*args, module: Module):
+    return module_op(module)(*args)

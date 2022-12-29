@@ -5,3 +5,4 @@ build/
 *.so
 .python-version
 data/
+.ipynb_checkpoints/
