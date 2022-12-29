@@ -532,6 +532,40 @@ void ReduceSum(const CudaArray& a, CudaArray* out, size_t reduce_size) {
                                            reduce_size);
 }
 
+__global__ void AllKernel(const float* a, size_t size, bool* res) {
+  *res = true;
+  for (size_t i = 0; i < size; ++i) {
+      *res &= (a[i] != 0);
+  }
+} 
+
+bool All(const CudaArray& a) {
+  bool host_res;
+  bool* device_res;
+  cudaMalloc(&device_res, sizeof(bool));
+  AllKernel<<<1, 1>>>(a.ptr, a.size, device_res);
+  cudaMemcpy(&host_res, device_res, sizeof(bool), cudaMemcpyDeviceToHost); 
+  cudaFree(device_res);
+  return host_res;
+}
+
+__global__ void AnyKernel(const float* a, size_t size, bool* res) {
+  *res = false;
+  for (size_t i = 0; i < size; ++i) {
+      *res |= (a[i] != 0);
+  }
+} 
+
+bool Any(const CudaArray& a) {
+  bool host_res;
+  bool* device_res;
+  cudaMalloc(&device_res, sizeof(bool));
+  AnyKernel<<<1, 1>>>(a.ptr, a.size, device_res) 
+  cudaMemcpy(&host_res, device_res, sizeof(bool), cudaMemcpyDeviceToHost); 
+  cudaFree(device_res);
+  return host_res;
+}
+
 } // namespace cuda
 } // namespace needle
 
@@ -607,4 +641,7 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
 
   m.def("reduce_max", ReduceMax);
   m.def("reduce_sum", ReduceSum);
+  
+  m.def("all", All);
+  m.def("any", Any);
 }

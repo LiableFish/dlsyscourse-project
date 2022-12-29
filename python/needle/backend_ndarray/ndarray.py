@@ -418,6 +418,10 @@ class NDArray:
                 view._offset,
             )
 
+    def squeeze(self):
+        new_shape = tuple(ax for ax in self.shape if ax != 1)
+        return self.compact().reshape(new_shape) 
+
     ### Collection of elementwise and scalar function: add, multiply, boolean, etc
 
     def ewise_or_scalar(self, other, ewise_func, scalar_func):
@@ -488,6 +492,16 @@ class NDArray:
 
     def __le__(self, other):
         return 1 - (self > other)
+
+    def __bool__(self):
+        if self.size > 1:
+            raise ValueError(
+                "The truth value of an array with more than one element is ambiguous."
+                " Use a.any() or a.all()"
+            )
+        return self.all()
+
+    __nonzero__ = __bool__
 
     ### Elementwise functions
 
@@ -596,6 +610,11 @@ class NDArray:
         self.device.reduce_max(view.compact()._handle, out._handle, view.shape[-1])
         return out
 
+    def all(self) -> bool:
+        return self.device.all(self.compact()._handle)
+
+    def any(self) -> bool:
+        return self.device.any(self.compact()._handle)
 
     def flip(self, axes):
         """
@@ -685,3 +704,8 @@ def summation(a, axis=None, keepdims=False):
 
 def reduce_max(a, axis=None, keepdims=False):
     return a.max(axis=axis, keepdims=keepdims)
+
+
+def norm(a):
+    """Computes L2 norm of NDArray"""
+    return summation(a ** 2) ** 0.5

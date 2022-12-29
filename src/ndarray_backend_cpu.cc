@@ -397,6 +397,28 @@ void ReduceSum(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
   }
 }
 
+bool All(const AlignedArray& a) {
+   /**
+   * Define if _every_ element of an array is not zero
+   *
+   * Args:
+   *   a: compact array
+   */
+  return std::all_of(a.ptr, a.ptr + a.size,
+                        [](scalar_t i){return i != 0;});
+}
+
+bool Any(const AlignedArray& a) {
+     /**
+   * Define if _any_ element of an array is not zero
+   *
+   * Args:
+   *   a: compact array
+   */
+  return std::any_of(a.ptr, a.ptr + a.size,
+                        [](scalar_t i){return i != 0;});
+}
+
 } // namespace cpu
 } // namespace needle
 
@@ -458,4 +480,7 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
 
   m.def("reduce_max", ReduceMax);
   m.def("reduce_sum", ReduceSum);
+
+  m.def("all", All);
+  m.def("any", Any);
 }

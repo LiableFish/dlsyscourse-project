@@ -386,7 +386,7 @@ def compute_gradient_of_variables(output_tensor: Tensor, out_grad: Tensor):
         grad = sum_node_list(node_to_output_grads_list[node])
         node.grad = grad
 
-        if  node.is_leaf():
+        if node.is_leaf():
             continue
 
         # partial_adjoint := adjoint * d node / d input
