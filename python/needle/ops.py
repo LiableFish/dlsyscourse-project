@@ -1,11 +1,13 @@
 """Operatpr table."""
 # Global operator table.
+from collections import defaultdict
 from functools import lru_cache
 from itertools import zip_longest
 from numbers import Number
 from typing import Iterable, Optional, List, Tuple, Union
 
 from .solver import BaseSolver
+from .nn import Module
 from .autograd import NDArray
 from .autograd import Op, Tensor, Value, TensorOp
 from .autograd import TensorTuple, TensorTupleOp
@@ -620,14 +622,14 @@ def conv(a, b, stride=1, padding=0):
 
 ##### fixed point #####
 
-from .nn import Module
-
 
 class FixedPoint(TensorOp):
     def __init__(self, op: Union[TensorOp, Module], solver: BaseSolver): 
         self.op = self._init_op(op)
         self.solver = solver
-        self.history = []
+        self.history = None
+        if self.solver.debug:
+            self.history = []
     
     @staticmethod
     def _init_op(op: Union[TensorOp, Module]) -> TensorOp:
@@ -647,7 +649,8 @@ class FixedPoint(TensorOp):
             dtype=inp.dtype,
         )
         res = self.solver.solve(lambda z: self.op.compute(z, inp, *params), init_value)
-        self.history.append(self.solver.meta)
+        if self.history is not None:
+            self.history.append(self.solver.meta)
         return res
 
     def gradient(self, out_grad: Tensor, node: Tensor):
@@ -686,7 +689,7 @@ class ModuleOp(TensorOp):
 
     def _compute_gradient(self, out_grad: Tensor, node: Tensor, inputs: List[Tensor]):
         tmp = {node: out_grad}
-        res = {}
+        res = defaultdict(int)
 
         while tmp:
             out = next(iter(tmp))
@@ -699,7 +702,7 @@ class ModuleOp(TensorOp):
             for inp, inp_grad in zip(out.inputs, inp_grads):
                 tmp[inp] = inp_grad
                 if inp in inputs:
-                    res[inp] = inp_grad
+                    res[inp] += inp_grad
                     
         return tuple(res[inp] for inp in inputs)
 
