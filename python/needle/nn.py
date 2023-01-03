@@ -4,6 +4,7 @@ import math
 from typing import List, Optional, Tuple
 from needle.autograd import Tensor
 from needle import ops
+from needle import solver
 import needle.init as init
 import numpy as np
 
@@ -835,3 +836,14 @@ class Embedding(Module):
 
         res = one_hot @ self.weight
         return res.reshape((seq_len, bs, self.embedding_dim))
+
+
+class DEQ(Module):
+    def __init__(self, module: Module, solver: solver.BaseSolver):
+        super().__init__()
+        self.module = module
+        self.solver = solver
+        self.fixed_op = ops.FixedPoint(self.module, solver=self.solver)
+
+    def forward(self, X: Tensor) -> Tensor:
+        return self.fixed_op(X, *self.module.parameters())
