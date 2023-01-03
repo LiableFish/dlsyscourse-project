@@ -277,7 +277,35 @@ def test_logsumexp(shape, axes, device):
         t_axes = axes
     np.testing.assert_allclose(torch.logsumexp(A_t, dim=t_axes).numpy(), ndl.logsumexp(A, axes=axes).numpy(), atol=1e-5, rtol=1e-5)
 
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("example", [
+    [1,1,1],
+    [1,1,0],
+    [1,0,0],
+    [0,0,0],
+    [-1,-1,-1],
+    [],
+])
+def test_all(example, device):
+    _A = np.array(example, dtype=np.float32)
+    A = nd.array(_A, device=device)
 
+    assert _A.all() == A.all()
+
+@pytest.mark.parametrize("device", _DEVICES, ids=["cpu", "cuda"])
+@pytest.mark.parametrize("example", [
+    [1,1,1],
+    [1,1,0],
+    [1,0,0],
+    [0,0,0],
+    [-1,-1,-1],
+    [],
+])
+def test_any(example, device):
+    _A = np.array(example, dtype=np.float32)
+    A = nd.array(_A, device=device)
+
+    assert _A.any() == A.any()
 
 ### MUGRADE ###
 
