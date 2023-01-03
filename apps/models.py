@@ -148,6 +148,159 @@ class LanguageModel(nn.Module):
         return self.linear_layer(hidden.reshape((seq_len * bs, hidden_size))), last
 
 
+####### DEQ ######
+
+class TanhLinearDEQLayer(nn.Module):
+    def __init__(self, out_features: int, device=None, dtype="float32"):
+        super().__init__()
+        self.device = device
+        self.dtype = dtype
+        self.linear = nn.Linear(out_features, out_features, bias=False, device=device, dtype=dtype)
+
+    def forward(self, Z: ndl.Tensor, X: ndl.Tensor) -> ndl.Tensor:
+        return ndl.ops.tanh(self.linear(Z) + X)    
+
+
+class TanhLinearDEQ(nn.Module):
+    def __init__(
+        self, 
+        in_features: int,
+        hidden_size: int, 
+        n_classes: int,
+        device=None,
+        dtype="float32", 
+        use_deq: bool = False,
+        depth: int = 50,
+        solver: ndl.solver.BaseSolver = ndl.solver.ForwardIteration(),
+    ) -> None:
+        super().__init__()
+        self.device = device
+        self.dtype = dtype
+        self.flatten = nn.Flatten()
+        self.input_linear = nn.Linear(in_features, hidden_size, device=device, dtype=dtype)
+
+        self.use_deq = use_deq
+        if self.use_deq:
+            self.deq = nn.DEQ(TanhLinearDEQLayer(hidden_size, device=device, dtype=dtype), solver)
+        else:
+            self.layers = [TanhLinearDEQLayer(hidden_size, device=device, dtype=dtype) for _ in range(depth)]
+
+        self.classification_layer = nn.Linear(hidden_size, n_classes, device=device)
+
+    def forward(self, X: ndl.Tensor) -> ndl.Tensor:
+        X = self.input_linear(self.flatten(X))
+
+        if self.use_deq:
+            Z = self.deq(X)
+        else:
+            Z = ndl.init.zeros_like(X)
+            for layer in self.layers:
+                Z = layer(Z, X)
+        
+        return self.classification_layer(Z)
+
+
+
+class ResNetDEQLayer(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        hidden_size: int,
+        kernel_size: int,
+        device=None, 
+        dtype="float32",
+):
+        super().__init__()
+        self.device = device
+        self.dtype = dtype
+        self.conv1 = nn.Conv(
+            in_channels, 
+            hidden_size, 
+            kernel_size, 
+            bias=False, 
+            device=device, 
+            dtype=dtype,
+        )
+        self.conv2 = nn.Conv(
+            hidden_size, 
+            in_channels, 
+            kernel_size,
+            bias=False,
+            device=device, 
+            dtype=dtype,
+        )
+        self.norm1 = nn.BatchNorm2d(
+            hidden_size,
+            device=device,
+            dtype=dtype,
+        )
+        self.norm2 = nn.BatchNorm2d(
+            in_channels,
+            device=device,
+            dtype=dtype,
+        )
+        self.norm3 = nn.BatchNorm2d(
+            in_channels,
+            device=device,
+            dtype=dtype,
+        )
+
+        self.relu = nn.ReLU()
+        # self.conv1.weight.data.normal_(0, 0.01)
+        # self.conv2.weight.data.normal_(0, 0.01)
+        
+    def forward(self, Z: ndl.Tensor, X: ndl.Tensor) -> ndl.Tensor:
+        Y = self.norm1(self.relu(self.conv1(Z)))
+        return self.norm3(self.relu(Z + self.norm2(X + self.conv2(Y))))
+
+
+class ResNetDEQ(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hidden_size: int,
+        kernel_size: int,
+        n_classes: int,
+        device=None, 
+        dtype="float32",
+        use_deq: bool = False,
+        depth: int = 50,
+        solver: ndl.solver.BaseSolver = ndl.solver.ForwardIteration(),
+    ):
+        self.device = device
+        self.dtype = dtype
+        self.use_deq = use_deq
+        self.conv = nn.Conv(in_channels, out_channels, kernel_size, device=device, dtype=dtype)
+        self.norm1 = nn.BatchNorm2d(out_channels, device=device, dtype=dtype)
+        if self.use_deq:
+            self.deq = nn.DEQ(
+                ResNetDEQLayer(out_channels, hidden_size, kernel_size, device=device, dtype=dtype),
+                solver,
+            )
+        else:
+            self.layers = [
+                ResNetDEQLayer(out_channels, hidden_size, kernel_size, device=device, dtype=dtype)
+                for _ in range(depth)
+            ]
+        self.norm2 = nn.BatchNorm2d(out_channels, device=device, dtype=dtype)
+        self.classification_layer = nn.Linear(out_channels * 32 * 32, n_classes, device=device)
+        self.flatten = nn.Flatten()
+
+    def forward(self, X: ndl.Tensor) -> ndl.Tensor:
+        X = self.norm1(self.conv(X))
+
+        if self.use_deq:
+            Z = self.deq(X)
+        else:
+            Z = ndl.init.zeros_like(X)
+            for layer in self.layers:
+                Z = layer(Z, X)     
+       
+        return self.classification_layer(self.flatten(self.norm2(Z)))
+
+
+
 if __name__ == "__main__":
     model = ResNet9()
     x = ndl.ops.randu((1, 32, 32, 3), requires_grad=True)
