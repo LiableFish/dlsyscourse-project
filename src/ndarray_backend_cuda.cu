@@ -560,7 +560,7 @@ bool Any(const CudaArray& a) {
   bool host_res;
   bool* device_res;
   cudaMalloc(&device_res, sizeof(bool));
-  AnyKernel<<<1, 1>>>(a.ptr, a.size, device_res) 
+  AnyKernel<<<1, 1>>>(a.ptr, a.size, device_res);
   cudaMemcpy(&host_res, device_res, sizeof(bool), cudaMemcpyDeviceToHost); 
   cudaFree(device_res);
   return host_res;
