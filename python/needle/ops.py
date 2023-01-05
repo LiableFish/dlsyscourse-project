@@ -687,7 +687,8 @@ class ModuleOp(TensorOp):
         z, x, *_ = args
         return self.module(Tensor.make_const(z), Tensor.make_const(x)).realize_cached_data()
 
-    def _compute_gradient(self, out_grad: Tensor, node: Tensor, inputs: List[Tensor]):
+    @staticmethod
+    def _compute_gradient(out_grad: Tensor, node: Tensor, inputs: List[Tensor]):
         tmp = {node: out_grad}
         res = defaultdict(int)
 
