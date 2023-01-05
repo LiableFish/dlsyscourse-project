@@ -1,21 +1,23 @@
 import sys
 from typing import Optional
+
 sys.path.append('./python')
 import needle as ndl
 import needle.nn as nn
 import math
 import numpy as np
+
 np.random.seed(0)
 
 
 class ConvBN(nn.Module):
     def __init__(
-        self, 
-        in_channels, 
+        self,
+        in_channels,
         out_channels,
-        kernel_size, 
+        kernel_size,
         stride=1,
-        bias=True, 
+        bias=True,
         device=None,
         dtype="float32",
     ) -> None:
@@ -55,15 +57,15 @@ class ResNet9(nn.Module):
             ConvBN(16, 32, 3, 2, device=device, dtype=dtype),
             nn.Residual(
                 nn.Sequential(
-                    ConvBN(32, 32, 3, 1, device=device, dtype=dtype), 
-                    ConvBN(32, 32, 3, 1, device=device, dtype=dtype), 
+                    ConvBN(32, 32, 3, 1, device=device, dtype=dtype),
+                    ConvBN(32, 32, 3, 1, device=device, dtype=dtype),
                 ),
             ),
-            ConvBN(32, 64, 3, 2, device=device, dtype=dtype), 
+            ConvBN(32, 64, 3, 2, device=device, dtype=dtype),
             ConvBN(64, 128, 3, 2, device=device, dtype=dtype),
             nn.Residual(
                 nn.Sequential(
-                    ConvBN(128, 128, 3, 1, device=device, dtype=dtype), 
+                    ConvBN(128, 128, 3, 1, device=device, dtype=dtype),
                     ConvBN(128, 128, 3, 1, device=device, dtype=dtype),
                 ),
             ),
@@ -105,7 +107,7 @@ class LanguageModel(nn.Module):
             device=device,
             dtype=dtype,
         )
-        
+
         if seq_model == 'rnn':
             seq2seq_cls = nn.RNN
         elif seq_model == 'lstm':
@@ -127,7 +129,6 @@ class LanguageModel(nn.Module):
             device=device,
             dtype=dtype,
         )
-
 
     def forward(self, X: ndl.Tensor, h: Optional[ndl.Tensor] = None):
         """
@@ -158,17 +159,17 @@ class TanhLinearDEQLayer(nn.Module):
         self.linear = nn.Linear(out_features, out_features, bias=False, device=device, dtype=dtype)
 
     def forward(self, Z: ndl.Tensor, X: ndl.Tensor) -> ndl.Tensor:
-        return ndl.ops.tanh(self.linear(Z) + X)    
+        return ndl.ops.tanh(self.linear(Z) + X)
 
 
 class TanhLinearDEQ(nn.Module):
     def __init__(
-        self, 
+        self,
         in_features: int,
-        hidden_size: int, 
+        hidden_size: int,
         n_classes: int,
         device=None,
-        dtype="float32", 
+        dtype="float32",
         use_deq: bool = False,
         depth: int = 50,
         solver: ndl.solver.BaseSolver = ndl.solver.ForwardIteration(),
@@ -196,62 +197,26 @@ class TanhLinearDEQ(nn.Module):
             Z = ndl.init.zeros_like(X)
             for layer in self.layers:
                 Z = layer(Z, X)
-        
-        return self.classification_layer(Z)
 
+        return self.classification_layer(Z)
 
 
 class ResNetDEQLayer(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        hidden_size: int,
         kernel_size: int,
-        device=None, 
+        device=None,
         dtype="float32",
-):
+    ):
         super().__init__()
         self.device = device
         self.dtype = dtype
-        self.conv1 = nn.Conv(
-            in_channels, 
-            hidden_size, 
-            kernel_size, 
-            bias=False, 
-            device=device, 
-            dtype=dtype,
-        )
-        self.conv2 = nn.Conv(
-            hidden_size, 
-            in_channels, 
-            kernel_size,
-            bias=False,
-            device=device, 
-            dtype=dtype,
-        )
-        self.norm1 = nn.BatchNorm2d(
-            hidden_size,
-            device=device,
-            dtype=dtype,
-        )
-        self.norm2 = nn.BatchNorm2d(
-            in_channels,
-            device=device,
-            dtype=dtype,
-        )
-        self.norm3 = nn.BatchNorm2d(
-            in_channels,
-            device=device,
-            dtype=dtype,
-        )
-
+        self.conv_bn = ConvBN(in_channels, in_channels, kernel_size, 1, bias=False, device=device, dtype=dtype)
         self.relu = nn.ReLU()
-        # self.conv1.weight.data.normal_(0, 0.01)
-        # self.conv2.weight.data.normal_(0, 0.01)
-        
+
     def forward(self, Z: ndl.Tensor, X: ndl.Tensor) -> ndl.Tensor:
-        Y = self.norm1(self.relu(self.conv1(Z)))
-        return self.norm3(self.relu(Z + self.norm2(X + self.conv2(Y))))
+        return self.relu(self.conv_bn(Z) + X)
 
 
 class ResNetDEQ(nn.Module):
@@ -259,10 +224,9 @@ class ResNetDEQ(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        hidden_size: int,
         kernel_size: int,
         n_classes: int,
-        device=None, 
+        device=None,
         dtype="float32",
         use_deq: bool = False,
         depth: int = 50,
@@ -271,34 +235,31 @@ class ResNetDEQ(nn.Module):
         self.device = device
         self.dtype = dtype
         self.use_deq = use_deq
-        self.conv = nn.Conv(in_channels, out_channels, kernel_size, device=device, dtype=dtype)
-        self.norm1 = nn.BatchNorm2d(out_channels, device=device, dtype=dtype)
+        self.conv_bn = ConvBN(in_channels, out_channels, kernel_size, stride=4, device=device, dtype=dtype)
         if self.use_deq:
             self.deq = nn.DEQ(
-                ResNetDEQLayer(out_channels, hidden_size, kernel_size, device=device, dtype=dtype),
+                ResNetDEQLayer(out_channels, kernel_size, device=device, dtype=dtype),
                 solver,
             )
         else:
             self.layers = [
-                ResNetDEQLayer(out_channels, hidden_size, kernel_size, device=device, dtype=dtype)
+                ResNetDEQLayer(out_channels, kernel_size, device=device, dtype=dtype)
                 for _ in range(depth)
             ]
-        self.norm2 = nn.BatchNorm2d(out_channels, device=device, dtype=dtype)
-        self.classification_layer = nn.Linear(out_channels * 32 * 32, n_classes, device=device)
+        self.classification_layer = nn.Linear(out_channels * 8 * 8, n_classes, device=device)
         self.flatten = nn.Flatten()
 
     def forward(self, X: ndl.Tensor) -> ndl.Tensor:
-        X = self.norm1(self.conv(X))
+        X = self.conv_bn(X)
 
         if self.use_deq:
             Z = self.deq(X)
         else:
             Z = ndl.init.zeros_like(X)
             for layer in self.layers:
-                Z = layer(Z, X)     
-       
-        return self.classification_layer(self.flatten(self.norm2(Z)))
+                Z = layer(Z, X)
 
+        return self.classification_layer(self.flatten(Z))
 
 
 if __name__ == "__main__":
